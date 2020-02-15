@@ -11,6 +11,7 @@ import org.springframework.integration.dsl.IntegrationFlow;
 import org.springframework.integration.dsl.IntegrationFlows;
 import org.springframework.integration.dsl.channel.MessageChannels;
 import org.springframework.integration.dsl.core.Pollers;
+import org.springframework.integration.dsl.mail.Mail;
 import org.springframework.integration.feed.inbound.FeedEntryMessageSource;
 import org.springframework.integration.file.support.FileExistsMode;
 import org.springframework.integration.scheduling.PollerMetadata;
@@ -80,5 +81,45 @@ public class MymessageApplication {
                 ).get();
     }
     //--------------------------------------------
-
+    //--------------------------------------------
+    // Engineering flow path
+    @Bean
+    public IntegrationFlow engineeringFlow(){
+        return IntegrationFlows.from(MessageChannels.queue("engineeringChannel",10))
+                .<SyndEntry, String>transform(
+                        e->"《"+e.getTitle()+"》"+e.getLink()
+                        +getProperty("line.separator")
+                ).handle(
+                        Files.outboundAdapter(new File("springblog"))
+                        .fileExistsMode(FileExistsMode.APPEND)
+                        .charset("UTF-8")
+                        .fileNameGenerator(message -> "engineering.txt")
+                        .get()
+                ).get();
+    }
+    //-------------------------------------------
+    @Bean
+    public IntegrationFlow newsFlow(){
+        return IntegrationFlows.from(MessageChannels.queue("newsChannel", 10))
+                .<SyndEntry, String>transform(
+                        payload->"《"+payload.getTitle()+"》"+payload.getLink()+getProperty("line.separator")
+                )
+                // add the information of message head by using enricherHeader
+                .enrichHeaders(
+                        Mail.headers()
+                        .subject("A news come from Spring")
+                        .to("2923616405@qq.com")
+                        .from("15014366986@163.com"))
+                // the information which send by mail is constructed by the method of Mail.headers provide by Spring Integration Java DSL
+                .handle(
+                        Mail.outboundAdapter("smtp.163.com")
+                        .port(25)
+                        .protocol("smtp")
+                        .credentials("2923616405@qq.com", "pyc@79#61")
+                        .javaMailProperties(p->p.put("mail.debug", "false")),
+                        e->e.id("smtpOut")
+                // define the outbound adapter of send mail by using a method called handle
+                // Constructed by Mail.outboundAdapter provided from Spring Integration Java DSL
+                ).get();
+    }
 }
