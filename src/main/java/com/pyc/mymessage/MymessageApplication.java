@@ -12,9 +12,13 @@ import org.springframework.integration.dsl.IntegrationFlows;
 import org.springframework.integration.dsl.channel.MessageChannels;
 import org.springframework.integration.dsl.core.Pollers;
 import org.springframework.integration.feed.inbound.FeedEntryMessageSource;
+import org.springframework.integration.file.support.FileExistsMode;
 import org.springframework.integration.scheduling.PollerMetadata;
+import org.springframework.integration.dsl.file.Files;
 
+import java.io.File;
 import java.io.IOException;
+
 
 @SpringBootApplication
 public class MymessageApplication {
@@ -65,5 +69,16 @@ public class MymessageApplication {
                 // convert it to string type and custom data format
                 .<SyndEntry, String>transform(payload->"《"+
                         payload.getTitle()+"》"+payload.getLink()+ getProperty("line.separator"))
+                // handling the outbound adapter of file by using handle method.
+                //Files class is a Fluent API provided by Spring Integration Java DSL to construct adapter of output files
+                .handle(
+                        Files.outboundAdapter(new File("springblog"))
+                        .fileExistsMode(FileExistsMode.APPEND)
+                        .charset("UTF-8")
+                        .fileNameGenerator(message -> "releases.txt")
+                        .get()
+                ).get();
     }
+    //--------------------------------------------
+
 }
